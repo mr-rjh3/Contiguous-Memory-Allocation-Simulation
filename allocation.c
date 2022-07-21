@@ -7,18 +7,20 @@
 typedef struct partition {
     int address;
     int size;
-    int PID;
+    char* PID;
+    struct partition * next;
 }Partition;
 
 typedef struct hole {
     int address;
     int size;
+    struct hole* next;
 }Hole;
 
 // Globlal variables
 int MAX_MEMORY;
-Partition partitions[100];
-Hole holes[100];
+Partition* partitionList = NULL;
+Hole* holeList = NULL;
 
 // Main Functions for the program
 void Allocate(char* PID, int size, char *type); // Riley 
@@ -62,9 +64,10 @@ int main(int argc, char *argv[]) {
     // initialize first hole
     if(argc == 2) {
         MAX_MEMORY = atoi(argv[1]);
-        Hole memory = {0, MAX_MEMORY};
-        holes[0] = memory;
-        printf("HOLE INITIALIZED AT ADDRESS %d WITH %d BYTES\n", holes[0].address, holes[0].size);
+        Hole memory = {0, MAX_MEMORY, NULL}; // maybe -1?
+        holeList = &memory;
+        //holes[0] = memory;
+        printf("HOLE INITIALIZED AT ADDRESS %d WITH %d BYTES\n", memory.address, memory.size);
     }
     else {
         printError("ERROR Invalid number of arguments.\n");
@@ -100,7 +103,7 @@ int main(int argc, char *argv[]) {
                 Allocate(arguments[1], atoi(arguments[2]), arguments[3]);
             }
             else{
-                printError("ERROR Expected expression: RQ \"PID\" \"Bytes\" \"Type\"");
+                printError("ERROR Expected expression: RQ \"PID\" \"Bytes\" \"Algorithm\"");
             }
         }
         // RL (Release Memory / Deallocate): Needs 2 arguments and must check if they are valid arguments
@@ -134,7 +137,7 @@ int main(int argc, char *argv[]) {
         else if(strcmp(arguments[0], "exit") == 0){
             if(tokenCount == 1){
                 printf("Exiting program.\n");
-                break;
+                exit(0);
             }
             else{
                 printError("ERROR Expected expression: EXIT");
@@ -175,31 +178,187 @@ int isNumber(char* str){
 }
 
 void Allocate(char* PID, int size, char* type) {
-    // TODO: implement first fit, best fit, and worst fit algorithms
-    printf("Allocating %d bytes to PID %s using %s algorithm\n", size, PID, type);
 
+    // Check to see if size is valid
+    if(size <= 0){
+        printError("ERROR Invalid size. Must be greater than 0.");
+        return;
+    }
+    // Check to see if PID is currently being used
+    Partition* current = partitionList;
+    while(current != NULL){
+        if(strcmp(current->PID, PID) == 0){
+            printError("ERROR PID is already in use.");
+            return;
+        }
+        current = current->next;
+    }
+    
+    Hole* prevHole = NULL;
+    Hole* currHole = holeList;
     // first fit
     if(strcmp(type, "f") == 0){
-        
+        printf("Attempting to allocate %d bytes to process %s using FIRST FIT algorithm\n", size, PID);
+        while(currHole->next != NULL && currHole->size < size){
+            printf("HOLE AT ADDRESS %d WITH %d BYTES\n", currHole->address, currHole->size);
+            prevHole = currHole;
+            currHole = currHole->next;
+        }
     }
     // best fit
     else if(strcmp(type, "b") == 0){
+        printf("Attempting to allocate %d bytes to process %s using BEST FIT algorithm\n", size, PID);
+        Hole* bestFit = holeList;
+        Hole* bestFitPrev = NULL;
+        while(currHole != NULL){
+            if(currHole->size < bestFit->size && currHole->size >= size){
+                bestFit = currHole;
+                bestFitPrev = prevHole;
+            }
+            prevHole = currHole;
+            currHole = currHole->next;
+        }
+        currHole = bestFit;
+        prevHole = bestFitPrev;
         
     }
     // worst fit
     else if(strcmp(type, "w") == 0){
-        
+        printf("Attempting to allocate %d bytes to process %s using WORST FIT algorithm\n", size, PID);
+        Hole* worstFit = holeList;
+        Hole* worstFitPrev = NULL;
+        while(currHole != NULL){
+            if(currHole->size > worstFit->size){
+                worstFit = currHole;
+                worstFitPrev = prevHole;
+            }
+            prevHole = currHole;
+            currHole = currHole->next;
+        }
+        currHole = worstFit;
+        prevHole = worstFitPrev;
     }
-
+    // if no fit found, print error message and return
     else{
         printError("ERROR Invalid algorithm type");
         return;
     }
+
+    // if there was not enough memory, print error message and return
+    if(currHole->size < size){
+            printError("ERROR Not enough memory");
+            return;
+    }
+    // if fit found, allocate memory to partition and update hole
+    else{
+        // create new partition
+        Partition* newPartition = (Partition*)malloc(sizeof(Partition));
+        newPartition->PID = PID;
+        newPartition->size = size;
+        newPartition->address = currHole->address;
+        newPartition->next = NULL;
+        
+        if(partitionList == NULL){ // if partition list is empty, add to front
+            partitionList = newPartition;
+        }
+        else{ // otherwise sort insertion into partition list
+            Partition* currPartition = partitionList;
+            Partition* prevPartition = NULL;
+            while(currPartition != NULL && currPartition->address < newPartition->address){
+                prevPartition = currPartition;
+                currPartition = currPartition->next;
+            }
+            if(prevPartition == NULL){ // if new partition is at front of list, add to front
+                newPartition->next = partitionList;
+                partitionList = newPartition;
+            }
+            else{ // otherwise add to middle / end of list
+                prevPartition->next = newPartition;
+                newPartition->next = currPartition;
+            }
+        }
+        
+        if(currHole->size == size){ // if hole is the same size as partition, remove hole from hole List
+            if(prevHole == NULL){ // if hole is first in list
+                holeList = currHole->next;
+            }
+            else{ // if hole is not first in list
+                prevHole->next = currHole->next;
+            }
+            free(currHole); // free hole
+        }
+        else{ // Otherwise the hole is larger than partition, update hole address and size in this case
+            currHole->address = currHole->address + size;
+            currHole->size = currHole->size - size;
+        }
+       
+        printf("Memory allocated successfully.\n");
+    }
 }
 
 void Deallocate(char* PID) {
-    // TODO: implement deallocation
     printf("Deallocating PID %s\n", PID);
+
+    // Find PID in partition list
+    Partition* currPartition = partitionList;
+    Partition* prevPartition = NULL;
+    while(currPartition != NULL && strcmp(currPartition->PID, PID) != 0){
+        prevPartition = currPartition;
+        currPartition = currPartition->next;
+    }
+    
+    // if PID is not in partition list, print error message and return
+    if(currPartition == NULL){ 
+        printError("ERROR PID is not in use.");
+        return;
+    }
+    else{ // Otherwise PID is in partition list, deallocate memory and remove from partition list
+       
+        // Create new hole from partition
+        Hole* newHole = (Hole*)malloc(sizeof(Hole));
+        newHole->address = currPartition->address;
+        newHole->size = currPartition->size;
+
+        // Remove partition from partition list
+        if(prevPartition == NULL){ // if PID is first in list , remove from front
+            partitionList = currPartition->next;
+        }
+        else{ // if PID is not first in list remove from middle / end of list
+            prevPartition->next = currPartition->next;
+        }
+        free(currPartition);
+
+        // add the new hole to hole list
+        if(holeList == NULL){ // if hole list is empty, add to front
+            holeList = newHole;
+        }
+        else{ // sort insertion into hole list
+            Hole* currHole = holeList;
+            Hole* prevHole = NULL;
+            while(currHole != NULL && currHole->address < newHole->address){
+                prevHole = currHole;
+                currHole = currHole->next;
+            }
+            if(prevHole == NULL){ // if new hole is first in list
+                newHole->next = holeList;
+                holeList = newHole;
+            }
+            else{ // if new hole is not first in list
+                newHole->next = currHole;
+                prevHole->next = newHole;
+            }
+
+            // check if new hole can be merged with adjacent holes
+            if(newHole->next != NULL && newHole->address + newHole->size == newHole->next->address){ // if we can merge with next hole then merge
+                newHole->size = newHole->size + newHole->next->size;
+                newHole->next = newHole->next->next;
+            }
+            if(prevHole != NULL && prevHole->address + prevHole->size == newHole->address){ // if we can merge with previous hole then merge
+                prevHole->size = prevHole->size + newHole->size;
+                prevHole->next = newHole->next;
+            }
+        }
+    }
 }
 
 void Status() {
