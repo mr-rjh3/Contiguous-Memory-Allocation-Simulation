@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     // initialize first hole
     if(argc == 2) {
         MAX_MEMORY = atoi(argv[1]);
-        Hole memory = {0, MAX_MEMORY, NULL}; // maybe -1?
+        Hole memory = {0, MAX_MEMORY, NULL};
         holeList = &memory;
         //holes[0] = memory;
         printf("HOLE INITIALIZED AT ADDRESS %d WITH %d BYTES\n", memory.address, memory.size);
@@ -362,11 +362,19 @@ void Deallocate(char* PID) {
 }
 
 void Status() {
-    // TODO: implement status
-    printf("Status:\n");
-}
+    printf("Paritions [Allocated memory = ]:\n");
+    Partition* currentP = partitionList;
+    while (currentP != NULL) {
+        printf("Address [%d:%d] Process %s \n", currentP->address, currentP->address + currentP->size -1, currentP->PID);
+        currentP = (currentP->next);
+    }
 
-void Compact() {
-    // TODO: implement compact
+    Hole* currentH = holeList;
+    printf("\nHoles [Free memory = ]:\n");
+    while (currentH != NULL) {
+        printf("Address [%d:%d] len %d\n", currentH->address, currentH->address + currentH->size -1, currentH->size);
+        currentH = (currentH->next);
+    }
+}void Compact() {
     printf("Compacting\n");
 }
