@@ -362,19 +362,70 @@ void Deallocate(char* PID) {
 }
 
 void Status() {
-    printf("Paritions [Allocated memory = ]:\n");
     Partition* currentP = partitionList;
-    while (currentP != NULL) {
-        printf("Address [%d:%d] Process %s \n", currentP->address, currentP->address + currentP->size -1, currentP->PID);
+    int taken = 0;
+    
+    // While the end of the linked list is not reached, 
+    // Print the address information and increment the list
+    printf("Paritions: \n");
+    while(currentP != NULL) {
+        printf("\tAddress [%d:%d] Process %s \n", currentP->address, currentP->address + currentP->size -1, currentP->PID);
+        taken = taken + currentP->size;
         currentP = (currentP->next);
     }
+    printf("\tTotal Allocated Memory = [%d]\n", taken);
 
+    printf("Holes: \n");
     Hole* currentH = holeList;
-    printf("\nHoles [Free memory = ]:\n");
-    while (currentH != NULL) {
-        printf("Address [%d:%d] len %d\n", currentH->address, currentH->address + currentH->size -1, currentH->size);
+    while(currentH != NULL) {
+        printf("\tAddress [%d:%d] len %d\n", currentH->address, currentH->address + currentH->size -1, currentH->size);
         currentH = (currentH->next);
     }
+    printf("\tFree memory = [%d]\n", MAX_MEMORY - taken);
+
 }void Compact() {
-    printf("Compacting\n");
+    
+    // Only compact if there is room to shuffle processes and if there are processes to compact
+    if(holeList != NULL && partitionList != NULL) {
+        Partition* currentP = partitionList;
+        int memStart = 0;
+
+        // While the end of the linked list is not reached,
+        // Move the address start of the current partition to "memstart"
+        // Update memstart to include the length of the current partition such that it holds the next available memory
+        // Increment the list
+        while(currentP != NULL) {
+            currentP->address = memStart;
+            memStart = memStart + currentP->size;
+            currentP = (currentP->next);
+        }
+
+        // Update the head of the list to be the remainder memory hole
+        holeList->address = memStart;
+        holeList->size = MAX_MEMORY - memStart;
+
+        // currentH holds the 2nd hole
+        Hole* currentH = holeList->next;
+        // Cutting off the list 
+        holeList->next = NULL;
+        // nextH is the next hole from currentH
+        Hole* nextH = NULL;
+
+        // Free the rest of the list
+        // Free currentH using nextH as a temp variable to hold the rest of the hole List before reassigning currentH to nextH
+        while(currentH != NULL) {
+            nextH = currentH->next;
+            free(currentH);
+            currentH = nextH;
+        }
+        printf("Compaction process is successful\n");
+    }
+
+    else if(holeList == NULL) {
+        printError("Compaction failed, no available memory.");
+    }
+
+    else {
+        printError("No processes to compact.");
+    }
 }
