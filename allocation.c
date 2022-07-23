@@ -1,3 +1,14 @@
+/*
+Memory Allocation and Deallocation Simulator
+
+Simulates memory allocation and deallocation using first fit, best fit, and worst fit algorithms.
+
+Github Repository: https://github.com/mr-rjh3/CP386-Assignment-4
+
+Github Usernames:   Riley: mr-rjh3
+                    Christine: christine-marie-nguyen
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -31,10 +42,12 @@ Type = 'F' for first fit, 'B' for best fit, 'W' for worst fit.
 void Deallocate(char* PID); // Riley
 /*
 Deallocates memory from a process to a hole.
+If the hole is adjacent to another hole, the hole is merged with it.
 */
 void Status(); // Christine
 /*
 Prints the status of the memory manager.
+Includes each hole / process address, the amount of free memory, and the amount of allocated memory.
 */
 void Compact(); // Christine
 /*
@@ -66,7 +79,6 @@ int main(int argc, char *argv[]) {
         MAX_MEMORY = atoi(argv[1]);
         Hole memory = {0, MAX_MEMORY, NULL};
         holeList = &memory;
-        //holes[0] = memory;
         printf("HOLE INITIALIZED AT ADDRESS %d WITH %d BYTES\n", memory.address, memory.size);
     }
     else {
@@ -76,7 +88,9 @@ int main(int argc, char *argv[]) {
     
     while(1){
         char *input = malloc(sizeof(char) * 100);
+        printf("\033[0;36m");
         printf("allocator>");
+        printf("\033[0m");
         fgets(input, 100, stdin);
         input[strcspn(input, "\n")] = '\0'; // remove newline from input
 
@@ -103,7 +117,7 @@ int main(int argc, char *argv[]) {
                 Allocate(arguments[1], atoi(arguments[2]), arguments[3]);
             }
             else{
-                printError("ERROR Expected expression: RQ \"PID\" \"Bytes\" \"Algorithm\"");
+                printError("ERROR Expected expression: RQ \"PID\" \"Bytes\" \"Algorithm\".");
             }
         }
         // RL (Release Memory / Deallocate): Needs 2 arguments and must check if they are valid arguments
@@ -112,7 +126,7 @@ int main(int argc, char *argv[]) {
                 Deallocate(arguments[1]);
             }
             else{
-                printError("ERROR Expected expression: RL \"PID\"");
+                printError("ERROR Expected expression: RL \"PID\".");
             }
         }
         // STATUS: Needs 1 argument
@@ -121,7 +135,7 @@ int main(int argc, char *argv[]) {
                 Status();
             }
             else{
-                printError("ERROR Expected expression: STATUS");
+                printError("ERROR Expected expression: STATUS.");
             }
         }
         // C (Compact): Needs 1 argument
@@ -130,7 +144,7 @@ int main(int argc, char *argv[]) {
                 Compact();
             }
             else{
-                printError("ERROR Expected expression: C");
+                printError("ERROR Expected expression: C.");
             }
         }
         // EXIT: Needs 1 argument
@@ -140,7 +154,7 @@ int main(int argc, char *argv[]) {
                 exit(0);
             }
             else{
-                printError("ERROR Expected expression: EXIT");
+                printError("ERROR Expected expression: EXIT.");
             }
         }
         // If command is not recognized, print error message and continue
@@ -148,33 +162,6 @@ int main(int argc, char *argv[]) {
             printError("ERROR Invalid command.");
         }
     }
-}
-
-void printError(char* error){
-    printf("\033[1;31m");
-    printf("===== %s =====\n", error);
-    printf("\033[0m");
-}
-void lowercaseString(char* str) {
-    for(int i = 0; str[i] != '\0'; i++){
-        str[i] = tolower(str[i]);
-    }
-}
-int isValidPID(char* PID){
-    if(PID[0] != 'p' || isNumber(&PID[1]) == 0){
-        printError("ERROR Invalid PID");
-        return 0;
-    }
-    return 1;
-}
-int isNumber(char* str){
-    for(int i = 0; str[i] != '\0'; i++){
-        if(!isdigit(str[i])){
-            printError("ERROR Invalid number");
-            return 0;
-        }
-    }
-    return 1;
 }
 
 void Allocate(char* PID, int size, char* type) {
@@ -198,25 +185,33 @@ void Allocate(char* PID, int size, char* type) {
     Hole* currHole = holeList;
     // first fit
     if(strcmp(type, "f") == 0){
+        printf("\033[0;33m");
         printf("Attempting to allocate %d bytes to process %s using FIRST FIT algorithm\n", size, PID);
+        printf("\033[0m");
         while(currHole->next != NULL && currHole->size < size){
-            printf("HOLE AT ADDRESS %d WITH %d BYTES\n", currHole->address, currHole->size);
+            //printf("HOLE AT ADDRESS %d WITH %d BYTES\n", currHole->address, currHole->size);
             prevHole = currHole;
             currHole = currHole->next;
         }
     }
     // best fit
     else if(strcmp(type, "b") == 0){
+        printf("\033[0;33m");
         printf("Attempting to allocate %d bytes to process %s using BEST FIT algorithm\n", size, PID);
+        printf("\033[0m");
         Hole* bestFit = holeList;
         Hole* bestFitPrev = NULL;
+        int index = 0;
         while(currHole != NULL){
+            printf("Index: %d | Delta: %d | Best Delta: %d\n", index, currHole->size - size, bestFit->size - size);
             if(currHole->size < bestFit->size && currHole->size >= size){
+                
                 bestFit = currHole;
                 bestFitPrev = prevHole;
             }
             prevHole = currHole;
             currHole = currHole->next;
+            index++;
         }
         currHole = bestFit;
         prevHole = bestFitPrev;
@@ -224,29 +219,35 @@ void Allocate(char* PID, int size, char* type) {
     }
     // worst fit
     else if(strcmp(type, "w") == 0){
+        printf("\033[0;33m");
         printf("Attempting to allocate %d bytes to process %s using WORST FIT algorithm\n", size, PID);
+        printf("\033[0m");
         Hole* worstFit = holeList;
         Hole* worstFitPrev = NULL;
+        int index = 0;
         while(currHole != NULL){
+            printf("Index: %d | Delta: %d | Worst Delta: %d\n", index, currHole->size - size, worstFit->size - size);
             if(currHole->size > worstFit->size){
                 worstFit = currHole;
                 worstFitPrev = prevHole;
             }
             prevHole = currHole;
             currHole = currHole->next;
+            index++;
         }
         currHole = worstFit;
         prevHole = worstFitPrev;
+        
     }
     // if no fit found, print error message and return
     else{
-        printError("ERROR Invalid algorithm type");
+        printError("ERROR Invalid algorithm type.");
         return;
     }
 
     // if there was not enough memory, print error message and return
     if(currHole->size < size){
-            printError("ERROR Not enough memory");
+            printError("ERROR No hole found with enough memory.");
             return;
     }
     // if fit found, allocate memory to partition and update hole
@@ -291,13 +292,16 @@ void Allocate(char* PID, int size, char* type) {
             currHole->address = currHole->address + size;
             currHole->size = currHole->size - size;
         }
-       
+        printf("\033[0;32m");
         printf("Memory allocated successfully.\n");
+        printf("\033[0m");
     }
 }
 
 void Deallocate(char* PID) {
+    printf("\033[0;33m");
     printf("Deallocating PID %s\n", PID);
+    printf("\033[0m");
 
     // Find PID in partition list
     Partition* currPartition = partitionList;
@@ -358,6 +362,9 @@ void Deallocate(char* PID) {
                 prevHole->next = newHole->next;
             }
         }
+        printf("\033[0;32m");
+        printf("Memory deallocated successfully.\n");
+        printf("\033[0m");
     }
 }
 
@@ -369,19 +376,23 @@ void Status() {
     // Print the address information and increment the list
     printf("Paritions: \n");
     while(currentP != NULL) {
-        printf("\tAddress [%d:%d] Process %s \n", currentP->address, currentP->address + currentP->size -1, currentP->PID);
+        printf("\tAddress: [%d:%d] Process: %s \n", currentP->address, currentP->address + currentP->size -1, currentP->PID);
         taken = taken + currentP->size;
         currentP = (currentP->next);
     }
+    printf("\033[0;33m");
     printf("\tTotal Allocated Memory = [%d]\n", taken);
+    printf("\033[0m");
 
     printf("Holes: \n");
     Hole* currentH = holeList;
     while(currentH != NULL) {
-        printf("\tAddress [%d:%d] len %d\n", currentH->address, currentH->address + currentH->size -1, currentH->size);
+        printf("\tAddress: [%d:%d] len: %d\n", currentH->address, currentH->address + currentH->size -1, currentH->size);
         currentH = (currentH->next);
     }
-    printf("\tFree memory = [%d]\n", MAX_MEMORY - taken);
+    printf("\033[0;33m");
+    printf("\tTotal Free memory = [%d]\n", MAX_MEMORY - taken);
+    printf("\033[0m");
 
 }void Compact() {
     
@@ -404,21 +415,12 @@ void Status() {
         holeList->address = memStart;
         holeList->size = MAX_MEMORY - memStart;
 
-        // currentH holds the 2nd hole
-        Hole* currentH = holeList->next;
         // Cutting off the list 
         holeList->next = NULL;
-        // nextH is the next hole from currentH
-        Hole* nextH = NULL;
 
-        // Free the rest of the list
-        // Free currentH using nextH as a temp variable to hold the rest of the hole List before reassigning currentH to nextH
-        while(currentH != NULL) {
-            nextH = currentH->next;
-            free(currentH);
-            currentH = nextH;
-        }
+        printf("\033[0;32m");
         printf("Compaction process is successful\n");
+        printf("\033[0m");
     }
 
     else if(holeList == NULL) {
@@ -428,4 +430,31 @@ void Status() {
     else {
         printError("No processes to compact.");
     }
+}
+
+void printError(char* error){
+    printf("\033[1;31m");
+    printf("===== %s =====\n", error);
+    printf("\033[0m");
+}
+void lowercaseString(char* str) {
+    for(int i = 0; str[i] != '\0'; i++){
+        str[i] = tolower(str[i]);
+    }
+}
+int isValidPID(char* PID){
+    if(PID[0] != 'p' || isNumber(&PID[1]) == 0){
+        printError("ERROR Invalid PID");
+        return 0;
+    }
+    return 1;
+}
+int isNumber(char* str){
+    for(int i = 0; str[i] != '\0'; i++){
+        if(!isdigit(str[i])){
+            printError("ERROR Invalid number");
+            return 0;
+        }
+    }
+    return 1;
 }
